@@ -160,7 +160,7 @@ def main():
         sys.executable, "-m", "streamlit", "run", 
         str(app_file),
         "--server.port", "8501",
-        "--server.address", "localhost",
+        "--server.address", "0.0.0.0",
         "--browser.gatherUsageStats", "false",
         "--server.fileWatcherType", "auto",
         "--server.runOnSave", "true"
