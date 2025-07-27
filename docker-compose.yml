@@ -102,9 +102,7 @@ services:
 
   # FastAPI应用服务
   fastapi-app:
-    build:
-      context: .
-      dockerfile: app/Dockerfile
+    build: .
     image: tradingagents-fastapi:latest
     container_name: TradingAgents-FastAPI
     ports:

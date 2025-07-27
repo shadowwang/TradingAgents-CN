@@ -52,6 +52,12 @@ COPY config/ ./config/
 
 COPY . .
 
-EXPOSE 8501
+# 暴露端口
+EXPOSE 6006
 
-CMD ["python", "-m", "streamlit", "run", "web/app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+# 设置健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:6006/v1/get_stock_data/000001 || exit 1
+
+# 启动命令
+CMD ["python", "/app/app/main.py"]
