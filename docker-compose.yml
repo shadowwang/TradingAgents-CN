@@ -100,6 +100,54 @@ services:
       retries: 3
       start_period: 30s
 
+  # FastAPI应用服务
+  fastapi-app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    image: tradingagents-fastapi:latest
+    container_name: TradingAgents-FastAPI
+    ports:
+      - "6006:6006"
+    volumes:
+      - .env:/app/.env
+      - ./app:/app/app
+      - ./tradingagents:/app/tradingagents
+      - ./config:/app/config
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: 1
+      PYTHONDONTWRITEBYTECODE: 1
+      PYTHONPATH: /app
+      TZ: "Asia/Shanghai"
+      # 日志配置
+      TRADINGAGENTS_LOG_LEVEL: "INFO"
+      TRADINGAGENTS_LOG_DIR: "/app/logs"
+      TRADINGAGENTS_LOG_FILE: "/app/logs/fastapi.log"
+      # Docker专用数据库配置
+      TRADINGAGENTS_MONGODB_URL: mongodb://admin:tradingagents123@mongodb:27017/tradingagents?authSource=admin
+      TRADINGAGENTS_REDIS_URL: redis://:tradingagents123@redis:6379
+      TRADINGAGENTS_CACHE_TYPE: redis
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - tradingagents-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6006/v1/get_stock_data/000001"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
   # Redis Commander管理界面
   redis-commander:
     image: ghcr.io/joeferner/redis-commander:latest
