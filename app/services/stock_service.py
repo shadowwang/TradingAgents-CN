@@ -1,7 +1,7 @@
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph import TradingAgentsGraph
-from tradingagents.utils.logging_manager import get_logger, get_logger_manager
-from tradingagents.utils.stock_validator import StockDataPreparationResult, get_stock_preparer
+from tradingagents.utils.logging_manager import get_logger
+from tradingagents.utils.stock_validator import get_stock_preparer
 logger = get_logger('server')
 
 # 添加配置管理器
@@ -26,6 +26,8 @@ class StockService:
                     'suggestion': preparation_result.suggestion,
                     'stock_symbol': stock_code,
                     'analysis_date': analysis_date,
+                    'state': None,
+                    'decision': None,
                 }
         except Exception as e:
             error_msg = f"❌ 数据预获取过程中发生错误: {str(e)}"
@@ -37,12 +39,9 @@ class StockService:
                 'suggestion': "请检查网络连接或稍后重试",
                 'stock_symbol': stock_code,
                 'analysis_date': analysis_date,
+                'state': None,
+                'decision': None,
             }
-
-        if TOKEN_TRACKING_ENABLED:
-            estimated_input = 2000 * len(analysts)  # 估算每个分析师2000个输入token
-            estimated_output = 1000 * len(analysts)  # 估算每个分析师1000个输出token
-            estimated_cost = token_tracker.estimate_cost(llm_provider, llm_model, estimated_input, estimated_output)
 
         config = DEFAULT_CONFIG.copy()
         config["llm_provider"] = "deepseek"
@@ -82,7 +81,7 @@ class StockService:
         graph = TradingAgentsGraph(analysts, config=config, debug=False)
         state, decision = graph.propagate(stock_code, analysis_date)
 
-        risk_assessment = self.extract_risk_assessment(self. state)
+        risk_assessment = self.extract_risk_assessment(state)
         # 将风险评估添加到状态中
         if risk_assessment:
             state['risk_assessment'] = risk_assessment
@@ -93,12 +92,10 @@ class StockService:
             'analysis_date': analysis_date,
             'analysts': analysts,
             'research_depth': research_depth,
-            'llm_provider': "deepseek",
-            'llm_model': "deepseek-chat",
             'state': state,
             'decision': decision,
             'success': True,
-            'error': None,
+            'suggestion': None,
         }
 
 
@@ -120,23 +117,23 @@ class StockService:
 
             # 格式化风险评估报告
             risk_assessment = f"""
-    ## ⚠️ 风险评估报告
-
-    ### 🔴 激进风险分析师观点
-    {risky_analysis if risky_analysis else '暂无激进风险分析'}
-
-    ### 🟡 中性风险分析师观点
-    {neutral_analysis if neutral_analysis else '暂无中性风险分析'}
-
-    ### 🟢 保守风险分析师观点
-    {safe_analysis if safe_analysis else '暂无保守风险分析'}
-
-    ### 🏛️ 风险管理委员会最终决议
-    {judge_decision if judge_decision else '暂无风险管理决议'}
-
-    ---
-    *风险评估基于多角度分析，请结合个人风险承受能力做出投资决策*
-            """.strip()
+            ## ⚠️ 风险评估报告
+        
+            ### 🔴 激进风险分析师观点
+            {risky_analysis if risky_analysis else '暂无激进风险分析'}
+        
+            ### 🟡 中性风险分析师观点
+            {neutral_analysis if neutral_analysis else '暂无中性风险分析'}
+        
+            ### 🟢 保守风险分析师观点
+            {safe_analysis if safe_analysis else '暂无保守风险分析'}
+        
+            ### 🏛️ 风险管理委员会最终决议
+            {judge_decision if judge_decision else '暂无风险管理决议'}
+        
+            ---
+            *风险评估基于多角度分析，请结合个人风险承受能力做出投资决策*
+                    """.strip()
 
             return risk_assessment
 
