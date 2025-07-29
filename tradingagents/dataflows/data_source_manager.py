@@ -49,6 +49,9 @@ class DataSourceManager:
         # 从环境变量获取，默认使用AKShare作为第一优先级数据源
         env_source = os.getenv('DEFAULT_CHINA_DATA_SOURCE', 'akshare').lower()
 
+        if os.getenv('TUSHARE_ENABLED'):
+            env_source = 'tushare'
+
         # 映射到枚举
         source_mapping = {
             'tushare': ChinaDataSource.TUSHARE,
