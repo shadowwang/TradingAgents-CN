@@ -1,3 +1,4 @@
+from app.model.stock_analysis_info import StockAnalysisInfo
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph import TradingAgentsGraph
 from tradingagents.utils.logging_manager import get_logger
@@ -15,17 +16,22 @@ except ImportError:
 
 class StockService:
 
-    def run_stock_analysis(self, stock_code: str, analysis_date:str, analysts:str, research_depth: int):
+    def get_stock_data(self,stock_code: str):
+        preparer = get_stock_preparer()
+        result = preparer.prepare_stock_data(stock_code)
+        return result
+
+    def run_stock_analysis(self, stockanalysis_info: StockAnalysisInfo):
         try:
             preparer = get_stock_preparer()
-            preparation_result = preparer.prepare_stock_data(stock_code)
+            preparation_result = preparer.prepare_stock_data(stockanalysis_info.stock_code)
             if not preparation_result.is_valid:
                 return {
                     'success': False,
                     'error': preparation_result.error_message,
                     'suggestion': preparation_result.suggestion,
-                    'stock_symbol': stock_code,
-                    'analysis_date': analysis_date,
+                    'stock_symbol': stockanalysis_info.stock_code,
+                    'analysis_date': stockanalysis_info.analysis_date,
                     'state': None,
                     'decision': None,
                 }
@@ -37,8 +43,8 @@ class StockService:
                 'success': False,
                 'error': error_msg,
                 'suggestion': "请检查网络连接或稍后重试",
-                'stock_symbol': stock_code,
-                'analysis_date': analysis_date,
+                'stock_symbol': stockanalysis_info.stock_code,
+                'analysis_date': stockanalysis_info.analysis_date,
                 'state': None,
                 'decision': None,
             }
@@ -47,7 +53,7 @@ class StockService:
         config["llm_provider"] = "deepseek"
         config["deep_think_llm"] = "deepseek-chat"
         config["quick_think_llm"] = "deepseek-chat"
-        if research_depth == 1:  # 1级 - 快速分析
+        if stockanalysis_info.research_depth == 1:  # 1级 - 快速分析
             config["max_debate_rounds"] = 1
             config["max_risk_discuss_rounds"] = 1
             # 保持内存功能启用，因为内存操作开销很小但能显著提升分析质量
@@ -55,17 +61,17 @@ class StockService:
 
             # 统一使用在线工具，避免离线工具的各种问题
             config["online_tools"] = True  # 所有市场都使用统一工具
-        elif research_depth == 2:  # 2级 - 基础分析
+        elif stockanalysis_info.research_depth == 2:  # 2级 - 基础分析
             config["max_debate_rounds"] = 1
             config["max_risk_discuss_rounds"] = 1
             config["memory_enabled"] = True
             config["online_tools"] = True
-        elif research_depth == 3:  # 3级 - 标准分析 (默认)
+        elif stockanalysis_info.research_depth == 3:  # 3级 - 标准分析 (默认)
             config["max_debate_rounds"] = 1
             config["max_risk_discuss_rounds"] = 2
             config["memory_enabled"] = True
             config["online_tools"] = True
-        elif research_depth == 4:  # 4级 - 深度分析
+        elif stockanalysis_info.research_depth == 4:  # 4级 - 深度分析
             config["max_debate_rounds"] = 2
             config["max_risk_discuss_rounds"] = 2
             config["memory_enabled"] = True
@@ -78,8 +84,8 @@ class StockService:
 
         # 默认基本面
         # analysts = "fundamentals"
-        graph = TradingAgentsGraph(analysts, config=config, debug=False)
-        state, decision = graph.propagate(stock_code, analysis_date)
+        graph = TradingAgentsGraph(stockanalysis_info.analysts, config=config, debug=False)
+        state, decision = graph.propagate(stockanalysis_info.stock_code, stockanalysis_info.analysis_date)
 
         risk_assessment = self.extract_risk_assessment(state)
         # 将风险评估添加到状态中
@@ -88,10 +94,10 @@ class StockService:
 
 
         results = {
-            'stock_symbol': stock_code,
-            'analysis_date': analysis_date,
-            'analysts': analysts,
-            'research_depth': research_depth,
+            'stock_symbol': stockanalysis_info.stock_code,
+            'analysis_date': stockanalysis_info.analysis_date,
+            'analysts': stockanalysis_info.analysts,
+            'research_depth': stockanalysis_info.research_depth,
             'state': state,
             'decision': decision,
             'success': True,
