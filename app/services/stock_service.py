@@ -1,3 +1,5 @@
+import uuid
+from datetime import datetime
 from typing import List, Dict, Any
 
 from app.model.stock_analysis_info import StockAnalysisInfo
@@ -23,8 +25,20 @@ class StockService:
         result = search_stocks(stock_code)
         return result
 
-    def run_stock_analysis(self, stockanalysis_info: StockAnalysisInfo):
+    def run_stock_analysis(self, stockanalysis_info: StockAnalysisInfo, progress_callback=None):
         try:
+            def update_progress(message, step=None, total_steps=None):
+                """更新进度"""
+                if progress_callback:
+                    progress_callback(message, step, total_steps)
+                logger.info(f"[进度] {message}")
+
+            # 生成会话ID用于Token跟踪和日志关联
+            session_id = f"analysis_{uuid.uuid4().hex[:8]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+            # 1. 数据预获取和验证阶段
+            update_progress("🔍 验证股票代码并预获取数据...", 1, 10)
+
             preparer = get_stock_preparer()
             preparation_result = preparer.prepare_stock_data(stockanalysis_info.stock_code)
             if not preparation_result.is_valid:
@@ -50,6 +64,10 @@ class StockService:
                 'state': None,
                 'decision': None,
             }
+
+        # 数据预获取成功
+        success_msg = f"✅ 数据准备完成: {preparation_result.stock_name} ({preparation_result.market_type})"
+        update_progress(success_msg)  # 使用智能检测，不再硬编码步骤
 
         config = DEFAULT_CONFIG.copy()
         config["llm_provider"] = "deepseek"
@@ -86,6 +104,8 @@ class StockService:
 
         # 默认基本面
         # analysts = "fundamentals"
+        update_progress(f"📊 开始分析 {stockanalysis_info.stock_name} 股票，这可能需要几分钟时间...")
+
         graph = TradingAgentsGraph(stockanalysis_info.analysts, config=config, debug=False)
         state, decision = graph.propagate(stockanalysis_info.stock_code, stockanalysis_info.analysis_date)
 
@@ -106,6 +126,7 @@ class StockService:
             'suggestion': None,
         }
 
+        update_progress("✅ 分析成功完成！")
 
         return results
 
