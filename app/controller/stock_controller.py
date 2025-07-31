@@ -1,3 +1,5 @@
+from typing import List, Dict, Any
+
 from fastapi import APIRouter
 
 from app.model.stock_analysis_info import StockAnalysisInfo
@@ -11,6 +13,6 @@ stock_service = StockService()
 def run_stock_analysis(stockanalysis_info: StockAnalysisInfo):
     return stock_service.run_stock_analysis(stockanalysis_info)
 
-@stock_router.get("/get_stock_data/{stock_code}")
-def get_stock_data(stock_code: str):
-  return stock_service.get_stock_data(stock_code)
+@stock_router.get("/get_stock_data/{stock_code}", response_model=List[Dict[str, Any]])
+def get_stock_data(stock_name: str):
+  return stock_service.get_stock_data(stock_name)
