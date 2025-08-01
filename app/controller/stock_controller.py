@@ -18,10 +18,7 @@ async def run_stock_analysis(stockanalysis_info: StockAnalysisInfo):
 
 @stock_router.get("/get_stock_data/{stock_name}", response_model=List[Dict[str, Any]])
 async def get_stock_data(stock_name: str):
-    try:
-        return await stock_service.get_stock_data(stock_name)
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Stock data not found: {e}")
+    return await stock_service.get_stock_data(stock_name)
 
 """
 const socket = new WebSocket('ws://your-server-address/ws/progress');
