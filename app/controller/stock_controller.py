@@ -1,3 +1,4 @@
+from http.client import HTTPException
 from typing import List, Dict, Any
 
 from fastapi import APIRouter
@@ -15,9 +16,12 @@ stock_service = StockService()
 async def run_stock_analysis(stockanalysis_info: StockAnalysisInfo):
     return stock_service.run_stock_analysis(stockanalysis_info, progress_callback)
 
-@stock_router.get("/get_stock_data/{stock_code}", response_model=List[Dict[str, Any]])
-def get_stock_data(stock_name: str):
-  return stock_service.get_stock_data(stock_name)
+@stock_router.get("/get_stock_data/{stock_name}", response_model=List[Dict[str, Any]])
+async def get_stock_data(stock_name: str):
+    try:
+        return await stock_service.get_stock_data(stock_name)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Stock data not found: {e}")
 
 """
 const socket = new WebSocket('ws://your-server-address/ws/progress');
