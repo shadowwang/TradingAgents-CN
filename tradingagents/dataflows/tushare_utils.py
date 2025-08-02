@@ -532,7 +532,6 @@ class TushareProvider:
             # 按名称和代码搜索
             mask = (
                 stock_list['name'].str.contains(keyword, na=False) |
-                stock_list['symbol'].str.contains(keyword, na=False) |
                 stock_list['ts_code'].str.contains(keyword, na=False)
             )
             

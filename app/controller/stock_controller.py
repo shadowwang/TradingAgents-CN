@@ -16,9 +16,9 @@ stock_service = StockService()
 async def run_stock_analysis(stockanalysis_info: StockAnalysisInfo):
     return stock_service.run_stock_analysis(stockanalysis_info, progress_callback)
 
-@stock_router.get("/get_stock_data/{stock_name}", response_model=List[Dict[str, Any]])
+@stock_router.get("/get_stock_data/{stock_name}")
 async def get_stock_data(stock_name: str):
-    return await stock_service.get_stock_data(stock_name)
+    return stock_service.get_stock_data(stock_name)
 
 """
 const socket = new WebSocket('ws://your-server-address/ws/progress');

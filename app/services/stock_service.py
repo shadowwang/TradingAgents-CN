@@ -4,6 +4,8 @@ from typing import List, Dict, Any
 
 from app.model.stock_analysis_info import StockAnalysisInfo
 from tradingagents.api.stock_api import search_stocks
+from tradingagents.dataflows import search_china_stocks_tushare
+from tradingagents.dataflows.interface import search_stocks_tushare
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph import TradingAgentsGraph
 from tradingagents.utils.logging_manager import get_logger
@@ -21,9 +23,8 @@ except ImportError:
 
 class StockService:
 
-    def get_stock_data(self,stock_code: str)-> List[Dict[str, Any]]:
-        result = search_stocks(stock_code)
-        return result
+    def get_stock_data(self, stock_code: str)-> str:
+        return search_stocks_tushare(stock_code)
 
     def run_stock_analysis(self, stockanalysis_info: StockAnalysisInfo, progress_callback=None):
         try:

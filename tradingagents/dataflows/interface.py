@@ -1144,6 +1144,31 @@ def search_china_stocks_tushare(
         logger.error(f"❌ [Tushare] 搜索股票失败: {e}")
         return f"❌ 搜索股票失败: {e}"
 
+def search_stocks_tushare(
+    keyword: Annotated[str, "搜索关键词，可以是股票名称或代码"]
+) -> str:
+    """
+    使用Tushare搜索中国A股股票
+    重定向到data_source_manager，避免循环调用
+
+    Args:
+        keyword: 搜索关键词
+
+    Returns:
+        str: 搜索结果
+    """
+    try:
+        from .data_source_manager import get_data_source_manager
+
+        logger.debug(f"🔍 [Tushare] 搜索股票: {keyword}")
+        logger.info(f"🔍 [股票代码追踪] 重定向到data_source_manager")
+
+        manager = get_data_source_manager()
+        return manager.search_stock_tushare(keyword)
+
+    except Exception as e:
+        logger.error(f"❌ [Tushare] 搜索股票失败: {e}")
+        return f"❌ 搜索股票失败: {e}"
 
 def get_china_stock_fundamentals_tushare(
     ticker: Annotated[str, "中国股票代码，如：000001、600036等"]

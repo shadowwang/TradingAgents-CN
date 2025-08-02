@@ -127,6 +127,45 @@ class DataSourceManager:
             logger.error(f"❌ [Tushare] 搜索股票失败: {e}")
             return f"❌ 搜索股票失败: {e}"
 
+    def search_stock_tushare(self, keyword: str) -> str:
+        """
+        使用Tushare搜索A股、美股、港股股票代码
+
+        Args:
+            keyword: 搜索关键词
+
+        Returns:
+            str: 搜索结果
+        """
+        try:
+            from .tushare_adapter import get_tushare_adapter
+
+            logger.debug(f"🔍 [Tushare] 搜索股票: {keyword}")
+
+            adapter = get_tushare_adapter()
+            results = adapter.search_stocks(keyword)
+
+            if results is not None and not results.empty:
+                result = f"搜索关键词: {keyword}\n"
+                result += f"找到 {len(results)} 只股票:\n\n"
+
+                # 显示前10个结果
+                import json
+                result_list = []
+                for idx, row in results.head(100).iterrows():
+                    stock_data = {
+                        "stock_code": row.get('symbol', ''),
+                        "stock_name": row.get('name', '')
+                    }
+                    result_list.append(stock_data)
+                return json.dumps(result_list, ensure_ascii=False)
+            else:
+                return f"❌ 未找到匹配'{keyword}'的股票"
+
+        except Exception as e:
+            logger.error(f"❌ [Tushare] 搜索股票失败: {e}")
+            return f"❌ 搜索股票失败: {e}"
+
     def get_china_stock_fundamentals_tushare(self, symbol: str) -> str:
         """
         使用Tushare获取中国股票基本面数据
