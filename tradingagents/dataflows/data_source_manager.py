@@ -154,17 +154,17 @@ class DataSourceManager:
                 result_list = []
                 for idx, row in results.head(100).iterrows():
                     stock_data = {
-                        "stock_code": row.get('symbol', ''),
+                        "stock_code": row.get('ts_code', ''),
                         "stock_name": row.get('name', '')
                     }
                     result_list.append(stock_data)
                 return json.dumps(result_list, ensure_ascii=False)
             else:
-                return f"❌ 未找到匹配'{keyword}'的股票"
+                return ""
 
         except Exception as e:
             logger.error(f"❌ [Tushare] 搜索股票失败: {e}")
-            return f"❌ 搜索股票失败: {e}"
+            return ""
 
     def get_china_stock_fundamentals_tushare(self, symbol: str) -> str:
         """

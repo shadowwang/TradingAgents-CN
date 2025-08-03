@@ -121,12 +121,18 @@ class TushareProvider:
             logger.info(f"🔄 从Tushare获取A股股票列表...")
             
             # 获取股票基本信息
-            stock_list = self.api.stock_basic(
+            stock_list = self.api.stock_basic (
                 exchange='',
                 list_status='L',  # 上市状态
                 fields='ts_code,symbol,name,area,industry,market,list_date'
             )
-            
+
+            # 获取港股基本信息
+            hk_list = self.api.hk_basic()
+
+            # 合并A股、港股和美股数据
+            stock_list = pd.concat([stock_list, hk_list], ignore_index=True)
+
             if stock_list is not None and not stock_list.empty:
                 logger.info(f"✅ 获取股票列表成功: {len(stock_list)}条")
                 
