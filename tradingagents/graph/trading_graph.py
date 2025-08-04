@@ -122,17 +122,31 @@ class TradingAgentsGraph:
             if not google_api_key:
                 raise ValueError("使用Google AI需要设置GOOGLE_API_KEY环境变量")
             
-            self.deep_thinking_llm = ChatGoogleOpenAI(
+            google_base_url = os.getenv('GOOGLE_BASE_URL')
+            
+            # 确保只传递主机名给api_endpoint
+            if google_base_url:
+                clean_base_url = google_base_url.replace("https://", "").replace("http://", "").split('/')[0]
+                client_options = {"api_endpoint": clean_base_url}
+                logger.info(f"✅ [Google Gemini] 使用自定义端点: {clean_base_url}")
+            else:
+                client_options = None
+
+            self.deep_thinking_llm = ChatGoogleGenerativeAI(
                 model=self.config["deep_think_llm"],
                 google_api_key=google_api_key,
                 temperature=0.1,
-                max_tokens=2000
+                max_tokens=2000,
+                client_options=client_options,
+                transport="rest"
             )
-            self.quick_thinking_llm = ChatGoogleOpenAI(
+            self.quick_thinking_llm = ChatGoogleGenerativeAI(
                 model=self.config["quick_think_llm"],
                 google_api_key=google_api_key,
                 temperature=0.1,
-                max_tokens=2000
+                max_tokens=2000,
+                client_options=client_options,
+                transport="rest"
             )
             
             logger.info(f"✅ [Google AI] 已启用优化的工具调用和内容格式处理")
