@@ -23,6 +23,14 @@ except ImportError:
 
 class StockService:
 
+    def get_team_members(self) -> list[dict[str, int | str]]:
+        return [
+            {"id": 1, "name": "market"},
+            {"id": 2, "name": "fundamentals"},
+            {"id": 3, "name": "news"},
+            {"id": 4, "name": "social"}
+        ]
+
     def get_stock_data(self, stock_code: str)-> str:
         return search_stocks_tushare(stock_code)
 
