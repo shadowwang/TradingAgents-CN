@@ -26,22 +26,22 @@ class StockService:
     def get_team_members(self) -> list[dict[str, int | str]]:
         return [
             {
-                id: 1,
+                "id": 1,
                 "name": '基本面分析师',
                 "icon": '/fundamental-analyst.svg'
             },
             {
-                id: 2,
+                "id": 2,
                 "name": '舆情分析师',
                 "icon": '/social-analyst.svg'
             },
             {
-                id: 3,
+                "id": 3,
                 "name": '市场分析师',
                 "icon": '/market-analyst.svg'
             },
             {
-                id: 4,
+                "id": 4,
                 "name": '资讯分析师',
                 "icon": '/news-analyst.svg'
             }
