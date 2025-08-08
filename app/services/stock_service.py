@@ -28,22 +28,22 @@ class StockService:
             {
                 id: 1,
                 "name": '基本面分析师',
-                "icon": '/images/fundamental-analyst.svg'
+                "icon": '/fundamental-analyst.svg'
             },
             {
                 id: 2,
                 "name": '舆情分析师',
-                "icon": '/images/social-analyst.svg'
+                "icon": '/social-analyst.svg'
             },
             {
                 id: 3,
                 "name": '市场分析师',
-                "icon": '/images/market-analyst.svg'
+                "icon": '/market-analyst.svg'
             },
             {
                 id: 4,
                 "name": '资讯分析师',
-                "icon": '/images/news-analyst.svg'
+                "icon": '/news-analyst.svg'
             }
         ]
 
