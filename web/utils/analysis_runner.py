@@ -567,6 +567,8 @@ def format_analysis_results(results):
     state = results['state']
     decision = results['decision']
 
+    logger.info(f"🔍 [state<<<<<<<<] state: {state}")
+    logger.info(f"🔍 [decision<<<<<<] decision: {decision}")
     # 提取关键信息
     # decision 可能是字符串（如 "BUY", "SELL", "HOLD"）或字典
     if isinstance(decision, str):
