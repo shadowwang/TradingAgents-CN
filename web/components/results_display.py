@@ -59,6 +59,9 @@ def render_results(results):
         st.info("💡 **解决方案**: 请检查API密钥配置，确保网络连接正常，然后重新运行分析。")
         return
 
+    logger.info(f"🔍 [render_results state<<<<<<<<] state: {state}")
+    logger.info(f"🔍 [render_results decision<<<<<<] decision: {decision}")
+
     # 投资决策摘要
     render_decision_summary(decision, stock_symbol)
 
