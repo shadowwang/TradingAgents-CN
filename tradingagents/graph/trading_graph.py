@@ -69,6 +69,28 @@ class TradingAgentsGraph:
         if self.config["llm_provider"].lower() == "openai":
             self.deep_thinking_llm = ChatOpenAI(model=self.config["deep_think_llm"], base_url=self.config["backend_url"])
             self.quick_thinking_llm = ChatOpenAI(model=self.config["quick_think_llm"], base_url=self.config["backend_url"])
+        elif self.config["llm_provider"] == "siliconflow":
+            # SiliconFlow支持：使用OpenAI兼容API
+            siliconflow_api_key = os.getenv('SILICONFLOW_API_KEY')
+            if not siliconflow_api_key:
+                raise ValueError("使用SiliconFlow需要设置SILICONFLOW_API_KEY环境变量")
+
+            logger.info(f"🌐 [SiliconFlow] 使用API密钥: {siliconflow_api_key[:20]}...")
+
+            self.deep_thinking_llm = ChatOpenAI(
+                model=self.config["deep_think_llm"],
+                base_url=self.config["backend_url"],
+                api_key=siliconflow_api_key,
+                temperature=0.1,
+                max_tokens=2000
+            )
+            self.quick_thinking_llm = ChatOpenAI(
+                model=self.config["quick_think_llm"],
+                base_url=self.config["backend_url"],
+                api_key=siliconflow_api_key,
+                temperature=0.1,
+                max_tokens=2000
+            )
         elif self.config["llm_provider"] == "openrouter":
             # OpenRouter支持：优先使用OPENROUTER_API_KEY，否则使用OPENAI_API_KEY
             openrouter_api_key = os.getenv('OPENROUTER_API_KEY') or os.getenv('OPENAI_API_KEY')
@@ -100,17 +122,31 @@ class TradingAgentsGraph:
             if not google_api_key:
                 raise ValueError("使用Google AI需要设置GOOGLE_API_KEY环境变量")
             
-            self.deep_thinking_llm = ChatGoogleOpenAI(
+            google_base_url = os.getenv('GOOGLE_BASE_URL')
+            
+            # 确保只传递主机名给api_endpoint
+            if google_base_url:
+                clean_base_url = google_base_url.replace("https://", "").replace("http://", "").split('/')[0]
+                client_options = {"api_endpoint": clean_base_url}
+                logger.info(f"✅ [Google Gemini] 使用自定义端点: {clean_base_url}")
+            else:
+                client_options = None
+
+            self.deep_thinking_llm = ChatGoogleGenerativeAI(
                 model=self.config["deep_think_llm"],
                 google_api_key=google_api_key,
                 temperature=0.1,
-                max_tokens=2000
+                max_tokens=2000,
+                client_options=client_options,
+                transport="rest"
             )
-            self.quick_thinking_llm = ChatGoogleOpenAI(
+            self.quick_thinking_llm = ChatGoogleGenerativeAI(
                 model=self.config["quick_think_llm"],
                 google_api_key=google_api_key,
                 temperature=0.1,
-                max_tokens=2000
+                max_tokens=2000,
+                client_options=client_options,
+                transport="rest"
             )
             
             logger.info(f"✅ [Google AI] 已启用优化的工具调用和内容格式处理")
@@ -243,43 +279,81 @@ class TradingAgentsGraph:
         self.graph = self.graph_setup.setup_graph(selected_analysts)
 
     def _create_tool_nodes(self) -> Dict[str, ToolNode]:
-        """Create tool nodes for different data sources."""
+        """Create tool nodes for different data sources based on configuration."""
+        
+        # 获取在线工具配置
+        online_tools_enabled = self.config.get("online_tools", False)
+        online_news_enabled = self.config.get("online_news", True)
+        realtime_data_enabled = self.config.get("realtime_data", False)
+        
+        # 市场数据工具选择
+        market_tools = [
+            # 统一工具 (始终可用)
+            self.toolkit.get_stock_market_data_unified,
+        ]
+        
+        # 根据配置添加在线/离线工具
+        if realtime_data_enabled:
+            # 实时数据优先
+            market_tools.extend([
+                self.toolkit.get_YFin_data_online,
+                self.toolkit.get_stockstats_indicators_report_online,
+                self.toolkit.get_YFin_data,  # 备用
+                self.toolkit.get_stockstats_indicators_report,  # 备用
+            ])
+        else:
+            # 离线数据优先
+            market_tools.extend([
+                self.toolkit.get_YFin_data,
+                self.toolkit.get_stockstats_indicators_report,
+                self.toolkit.get_YFin_data_online,  # 备用
+                self.toolkit.get_stockstats_indicators_report_online,  # 备用
+            ])
+        
+        # 社交媒体工具选择
+        social_tools = []
+        if online_tools_enabled:
+            # 在线工具优先
+            social_tools.extend([
+                self.toolkit.get_stock_news_openai,
+                self.toolkit.get_reddit_stock_info,  # 备用
+            ])
+        else:
+            # 离线工具优先
+            social_tools.extend([
+                self.toolkit.get_reddit_stock_info,
+                self.toolkit.get_stock_news_openai,  # 备用
+            ])
+        
+        # 新闻工具选择
+        news_tools = []
+        if online_news_enabled:
+            # 在线新闻优先
+            news_tools.extend([
+                self.toolkit.get_google_news,
+                self.toolkit.get_finnhub_news,
+                self.toolkit.get_reddit_news,
+            ])
+            # 如果OpenAI也启用，添加OpenAI新闻工具
+            if online_tools_enabled:
+                news_tools.insert(0, self.toolkit.get_global_news_openai)
+        else:
+            # 离线新闻优先
+            news_tools.extend([
+                self.toolkit.get_finnhub_news,
+                self.toolkit.get_reddit_news,
+                self.toolkit.get_google_news,  # 备用 (不需要API key)
+            ])
+        
         return {
-            "market": ToolNode(
-                [
-                    # 统一工具
-                    self.toolkit.get_stock_market_data_unified,
-                    # online tools
-                    self.toolkit.get_YFin_data_online,
-                    self.toolkit.get_stockstats_indicators_report_online,
-                    # offline tools
-                    self.toolkit.get_YFin_data,
-                    self.toolkit.get_stockstats_indicators_report,
-                ]
-            ),
-            "social": ToolNode(
-                [
-                    # online tools
-                    self.toolkit.get_stock_news_openai,
-                    # offline tools
-                    self.toolkit.get_reddit_stock_info,
-                ]
-            ),
-            "news": ToolNode(
-                [
-                    # online tools
-                    self.toolkit.get_global_news_openai,
-                    self.toolkit.get_google_news,
-                    # offline tools
-                    self.toolkit.get_finnhub_news,
-                    self.toolkit.get_reddit_news,
-                ]
-            ),
+            "market": ToolNode(market_tools),
+            "social": ToolNode(social_tools),
+            "news": ToolNode(news_tools),
             "fundamentals": ToolNode(
                 [
-                    # 统一工具
+                    # 统一工具 (始终可用)
                     self.toolkit.get_stock_fundamentals_unified,
-                    # offline tools
+                    # 基础工具 (不依赖在线配置)
                     self.toolkit.get_finnhub_company_insider_sentiment,
                     self.toolkit.get_finnhub_company_insider_transactions,
                     self.toolkit.get_simfin_balance_sheet,
