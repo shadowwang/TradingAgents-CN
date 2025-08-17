@@ -6,7 +6,7 @@ from starlette.websockets import WebSocketDisconnect, WebSocket
 
 from app.manager.websocket_manager import manager
 from app.model.stock_analysis_info import StockAnalysisInfo
-from app.services.stock_service import StockService
+from app.services.stock_service import StockService, logger
 from tradingagents.utils.stock_validator import get_stock_preparer
 
 stock_router = APIRouter()
@@ -14,6 +14,14 @@ stock_service = StockService()
 
 @stock_router.post("/stock_analysis")
 async def run_stock_analysis(stockanalysis_info: StockAnalysisInfo):
+    logger.info(f"🔧 开始运行股票分析: {stockanalysis_info}")
+    # 如果stockanalysis_info为空，返回错误：
+    if not stockanalysis_info:
+        return {
+            'success': False,
+            'state': None,
+            'decision': None,
+        }
     return stock_service.run_stock_analysis(stockanalysis_info, progress_callback)
 
 @stock_router.get("/get_stock_data/{stock_name}")

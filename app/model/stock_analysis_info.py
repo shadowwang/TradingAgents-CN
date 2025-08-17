@@ -6,3 +6,4 @@ class StockAnalysisInfo(BaseModel):
     analysis_date: str
     analysts: str
     research_depth: int
+    id: int
