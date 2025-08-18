@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Literal
 
 from pydantic import BaseModel
 
@@ -7,5 +7,6 @@ class StockAnalysisInfo(BaseModel):
     stock_name: str
     analysis_date: Optional[str] = None
     analysts: Optional[str] = None
-    research_depth: Optional[int] = None
+    analysis_type: Optional[Literal["market", "social", "news", "fundamentals"]] = None
+    research_depth: Optional[int] = 1
     id: str
