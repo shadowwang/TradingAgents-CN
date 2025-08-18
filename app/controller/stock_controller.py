@@ -1,3 +1,4 @@
+from datetime import datetime
 from http.client import HTTPException
 from typing import List, Dict, Any
 
@@ -23,6 +24,7 @@ async def run_stock_analysis(stockanalysis_info: StockAnalysisInfo):
             'decision': None,
         }
     stockanalysis_info.analysts = ["market", "social", "news", "fundamentals"];
+    stockanalysis_info.analysis_date = datetime.now().strftime('%Y-%m-%d');
     return stock_service.run_stock_analysis(stockanalysis_info, progress_callback)
 
 @stock_router.get("/get_stock_data/{stock_name}")
