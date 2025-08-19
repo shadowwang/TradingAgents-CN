@@ -32,6 +32,14 @@ html = """
                 message.appendChild(content)
                 messages.appendChild(message)
             };
+            ws.onerror = function(error) {
+                console.error('WebSocket错误:', error);
+                var messages = document.getElementById('messages')
+                var message = document.createElement('li')
+                var content = document.createTextNode('连接发生错误')
+                message.appendChild(content)
+                messages.appendChild(message)
+            };
             function sendMessage(event) {
                 var input = document.getElementById("messageText")
                 ws.send(input.value)
