@@ -24,7 +24,7 @@ html = """
         <ul id='messages'>
         </ul>
         <script>
-            var ws = new WebSocket("wss://www.trade-aiagent.com/v1/progress");
+            var ws = new WebSocket("wss://www.trade-aiagent.com/ws/v1/progress");
             ws.onmessage = function(event) {
                 var messages = document.getElementById('messages')
                 var message = document.createElement('li')
