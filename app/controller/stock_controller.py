@@ -78,7 +78,7 @@ async def get_stock_data(stock_name: str):
 async def get_team_members():
     return stock_service.get_team_members()
 
-@stock_router.websocket("/progress")
+@stock_router.websocket("/ws")
 async def websocket_progress(websocket: WebSocket):
     await manager.connect(websocket)
     try:
