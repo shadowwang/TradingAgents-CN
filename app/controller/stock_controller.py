@@ -1,17 +1,52 @@
 from datetime import datetime
-from http.client import HTTPException
-from typing import List, Dict, Any
 
-from fastapi import APIRouter
-from starlette.websockets import WebSocketDisconnect, WebSocket
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.manager.websocket_manager import manager
 from app.model.stock_analysis_info import StockAnalysisInfo
 from app.services.stock_service import StockService, logger
-from tradingagents.utils.stock_validator import get_stock_preparer
 
 stock_router = APIRouter()
 stock_service = StockService()
+
+html = """
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Chat</title>
+    </head>
+    <body>
+        <h1>WebSocket Chat</h1>
+        <form action="" onsubmit="sendMessage(event)">
+            <input type="text" id="messageText" autocomplete="off"/>
+            <button>Send</button>
+        </form>
+        <ul id='messages'>
+        </ul>
+        <script>
+            var ws = new WebSocket("wss://www.trade-aiagent.com/v1/progress");
+            ws.onmessage = function(event) {
+                var messages = document.getElementById('messages')
+                var message = document.createElement('li')
+                var content = document.createTextNode(event.data)
+                message.appendChild(content)
+                messages.appendChild(message)
+            };
+            function sendMessage(event) {
+                var input = document.getElementById("messageText")
+                ws.send(input.value)
+                input.value = ''
+                event.preventDefault()
+            }
+        </script>
+    </body>
+</html>
+"""
+
+from fastapi.responses import HTMLResponse
+@stock_router.get("/")
+async def get():
+    return HTMLResponse(html)
 
 @stock_router.post("/stock_analysis")
 async def run_stock_analysis(stockanalysis_info: StockAnalysisInfo):
@@ -35,20 +70,14 @@ async def get_stock_data(stock_name: str):
 async def get_team_members():
     return stock_service.get_team_members()
 
-"""
-const socket = new WebSocket('ws://your-server-address/ws/progress');
-
-socket.onmessage = (event) => {
-    console.log('Progress update:', event.data);
-};
-"""
-@stock_router.websocket("/ws/progress")
+@stock_router.websocket("/progress")
 async def websocket_progress(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
             # 保持连接开放
             data = await websocket.receive_text()
+            await websocket.send_text(f"Message text was: {data}")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
