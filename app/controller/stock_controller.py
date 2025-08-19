@@ -56,19 +56,54 @@ from fastapi.responses import HTMLResponse
 async def get():
     return HTMLResponse(html)
 
-@stock_router.post("/stock_analysis")
-async def run_stock_analysis(stockanalysis_info: StockAnalysisInfo):
-    logger.info(f"🔧 开始运行股票分析: {stockanalysis_info}")
-    # 如果stockanalysis_info为空，返回错误：
-    if not stockanalysis_info:
-        return {
+@stock_router.websocket("/ws")
+async def websocket_stock_analysis(websocket: WebSocket):
+    await websocket.accept()
+
+    try:
+        # 接收客户端发送的股票分析信息
+        data = await websocket.receive_json()
+        stockanalysis_info = StockAnalysisInfo(**data)
+
+        logger.info(f"🔧 开始运行股票分析 (WebSocket): {stockanalysis_info}")
+
+        # 如果stockanalysis_info为空，返回错误：
+        if not stockanalysis_info:
+            await websocket.send_json({
+                'success': False,
+                'state': None,
+                'decision': None,
+            })
+            return
+
+        # 设置分析参数
+        stockanalysis_info.analysts = ["market", "social", "news", "fundamentals"]
+        stockanalysis_info.analysis_date = datetime.now().strftime('%Y-%m-%d')
+
+        # 定义WebSocket进度回调
+        async def ws_progress_callback(progress: dict):
+            await websocket.send_json({
+                'success': True,
+                'type': 'progress',
+                'data': progress
+            })
+
+        # 运行分析并发送结果
+        result = await stock_service.run_stock_analysis(stockanalysis_info, ws_progress_callback)
+        await websocket.send_json({
+            'success': True,
+            'type': 'result',
+            'data': result
+        })
+
+    except Exception as e:
+        logger.error(f"WebSocket股票分析错误: {str(e)}")
+        await websocket.send_json({
             'success': False,
-            'state': None,
-            'decision': None,
-        }
-    stockanalysis_info.analysts = ["market", "social", "news", "fundamentals"];
-    stockanalysis_info.analysis_date = datetime.now().strftime('%Y-%m-%d');
-    return stock_service.run_stock_analysis(stockanalysis_info, progress_callback)
+            'error': str(e)
+        })
+    finally:
+        await websocket.close()
 
 @stock_router.get("/get_stock_data/{stock_name}")
 async def get_stock_data(stock_name: str):
@@ -77,17 +112,3 @@ async def get_stock_data(stock_name: str):
 @stock_router.get("/get_team_members")
 async def get_team_members():
     return stock_service.get_team_members()
-
-@stock_router.websocket("/ws")
-async def websocket_progress(websocket: WebSocket):
-    await manager.connect(websocket)
-    try:
-        while True:
-            # 保持连接开放
-            data = await websocket.receive_text()
-            await websocket.send_text(f"Message text was: {data}")
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
-
-async def progress_callback(message: str, step: int = None, total_steps: int = None):
-    await manager.broadcast(message)
