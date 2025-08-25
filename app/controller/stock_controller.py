@@ -102,8 +102,8 @@ async def websocket_stock_analysis(websocket: WebSocket):
             'success': False,
             'error': str(e)
         })
-    finally:
-        await websocket.close()
+    # finally:
+    #     await websocket.close()
 
 @stock_router.get("/get_stock_data/{stock_name}")
 async def get_stock_data(stock_name: str):
