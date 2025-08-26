@@ -76,24 +76,32 @@ async def websocket_stock_analysis(websocket: WebSocket):
             })
             return
 
-        # 设置分析参数
-        # stockanalysis_info.analysts = ["market", "social", "news", "fundamentals"]
-        # stockanalysis_info.analysis_date = datetime.now().strftime('%Y-%m-%d')
-        #
-        # # 定义WebSocket进度回调
-        # async def ws_progress_callback(progress: dict):
-        #     await websocket.send_json({
-        #         'success': True,
-        #         'type': 'progress',
-        #         'data': progress
-        #     })
-        #
-        # # 运行分析并发送结果
-        # result = await stock_service.run_stock_analysis(stockanalysis_info, ws_progress_callback)
         await websocket.send_json({
             'success': True,
             'type': 'result',
             'decision': ""
+        })
+
+        # 设置分析参数
+        stockanalysis_info.analysts = ["market", "social", "news", "fundamentals"]
+        stockanalysis_info.analysis_date = datetime.now().strftime('%Y-%m-%d')
+
+        # 定义WebSocket进度回调
+        async def ws_progress_callback(progress: dict):
+            await websocket.send_json({
+                'success': True,
+                'error': 'ok',
+                'type': 'progress',
+                'data': progress
+            })
+
+        # 运行分析并发送结果
+        result = await stock_service.run_stock_analysis(stockanalysis_info, ws_progress_callback)
+        await websocket.send_json({
+            'success': True,
+            'error': 'ok',
+            'type': 'result',
+            'decision': result
         })
 
     except Exception as e:
