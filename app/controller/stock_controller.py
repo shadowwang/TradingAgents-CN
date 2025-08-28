@@ -88,9 +88,9 @@ async def websocket_stock_analysis(websocket: WebSocket):
         stockanalysis_info.analysis_date = datetime.now().strftime('%Y-%m-%d')
 
         # 定义WebSocket进度回调
-        def ws_progress_callback(progress):
+        async def ws_progress_callback(progress):
             logger.info(f"[ws_progress_callback] {progress} ")
-            websocket.send_json({
+            await websocket.send_json({
                 'success': True,
                 'error': 'ok',
                 'type': 'progress',
@@ -98,7 +98,7 @@ async def websocket_stock_analysis(websocket: WebSocket):
             })
 
         # 运行分析并发送结果
-        result = stock_service.run_stock_analysis(stockanalysis_info, ws_progress_callback)
+        result = await stock_service.run_stock_analysis(stockanalysis_info, ws_progress_callback)
         await websocket.send_json({
             'success': True,
             'error': 'ok',

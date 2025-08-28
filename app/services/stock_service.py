@@ -53,16 +53,16 @@ class StockService:
     def get_stock_data(self, stock_code: str)-> str:
         return search_stocks_tushare(stock_code)
 
-    def run_stock_analysis(self, stockanalysis_info: StockAnalysisInfo, progress_callback=None, cancel_flag=None):
+    async def run_stock_analysis(self, stockanalysis_info: StockAnalysisInfo, progress_callback=None, cancel_flag=None):
         try:
-            def update_progress(message, step=None, total_steps=None):
+            async def update_progress(message, step=None, total_steps=None):
                 """更新进度"""
                 if progress_callback:
                     logger.info(f"[进度] {message}")
-                    progress_callback({'message': message,  'step': step, 'total_steps': total_steps})
+                    await progress_callback({'message': message,  'step': step, 'total_steps': total_steps})
 
             # 1. 数据预获取和验证阶段
-            update_progress("🔍 验证股票代码并预获取数据...", 1, 10)
+            await update_progress("🔍 验证股票代码并预获取数据...", 1, 10)
 
             preparer = get_stock_preparer()
             preparation_result = preparer.prepare_stock_data(stockanalysis_info.stock_code)
@@ -92,7 +92,7 @@ class StockService:
 
         # 数据预获取成功
         success_msg = f"✅ 数据准备完成: {preparation_result.stock_name} ({preparation_result.market_type})"
-        update_progress(success_msg, 2, 10)  # 使用智能检测，不再硬编码步骤
+        await update_progress(success_msg, 2, 10)  # 使用智能检测，不再硬编码步骤
 
         config = DEFAULT_CONFIG.copy()
         config["llm_provider"] = "deepseek"
@@ -129,7 +129,7 @@ class StockService:
 
         # 默认基本面
         # analysts = "fundamentals"
-        update_progress(f"📊 开始分析 {stockanalysis_info.stock_name} 股票，这可能需要几分钟时间...", 3, 10)
+        await update_progress(f"📊 开始分析 {stockanalysis_info.stock_name} 股票，这可能需要几分钟时间...", 3, 10)
 
         # 检查是否需要取消分析
         # if cancel_flag and cancel_flag.is_set():
@@ -210,7 +210,7 @@ class StockService:
         #     'suggestion': None,
         # }
 
-        update_progress("✅ 分析成功完成！", 10, 10)
+        await update_progress("✅ 分析成功完成！", 10, 10)
         # mock
         results = {
             'stock_symbol': stockanalysis_info.stock_code,
