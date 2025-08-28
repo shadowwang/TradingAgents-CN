@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import List, Dict, Any
 
 from app.model.stock_analysis_info import StockAnalysisInfo
+from app.utils.progress_tracker import SmartAnalysisProgressTracker
 from tradingagents.api.stock_api import search_stocks
 from tradingagents.dataflows import search_china_stocks_tushare
 from tradingagents.dataflows.interface import search_stocks_tushare
@@ -58,8 +59,17 @@ class StockService:
             async def update_progress(message, step=None, total_steps=None):
                 """更新进度"""
                 if progress_callback:
+                    tracker = SmartAnalysisProgressTracker(stockanalysis_info.analysts , stockanalysis_info.research_depth,
+                                                           "deepseek")
+                    progress = step / max(total_steps - 1, 1) if total_steps > 1 else 1.0
+                    progress = min(progress, 1.0)
+                    elapsed_time = tracker.get_elapsed_time()
+                    remaining_time = tracker._estimate_remaining_time(progress, elapsed_time)
                     logger.info(f"[进度] {message}")
-                    await progress_callback({'message': message,  'step': step, 'total_steps': total_steps})
+                    await progress_callback({'message': message,
+                                             'progress': progress,
+                                             'remaining_time': remaining_time,
+                                             'elapsed_time': elapsed_time})
 
             # 1. 数据预获取和验证阶段
             await update_progress("🔍 验证股票代码并预获取数据...", 1, 10)
