@@ -64,7 +64,7 @@ class StockService:
                     progress = step / max(total_steps - 1, 1) if total_steps > 1 else 1.0
                     progress = min(progress, 1.0)
                     elapsed_time = tracker.get_elapsed_time()
-                    remaining_time = tracker._estimate_remaining_time(progress, elapsed_time)
+                    remaining_time = tracker.estimate_remaining_time(progress, elapsed_time)
                     logger.info(f"[进度] {message}")
                     await progress_callback({'message': message,
                                              'progress': progress,

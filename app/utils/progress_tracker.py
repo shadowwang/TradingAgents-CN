@@ -149,7 +149,7 @@ class SmartAnalysisProgressTracker:
 
         return min(completed_weight / total_weight, 1.0)
 
-    def _estimate_remaining_time(self, progress: float, elapsed_time: float) -> float:
+    def estimate_remaining_time(self, progress: float, elapsed_time: float) -> float:
         """智能预估剩余时间"""
         if progress <= 0:
             return self.estimated_duration
