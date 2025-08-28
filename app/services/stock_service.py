@@ -58,8 +58,8 @@ class StockService:
             def update_progress(message, step=None, total_steps=None):
                 """更新进度"""
                 if progress_callback:
+                    logger.info(f"[进度] {message}")
                     progress_callback({'message': message,  'step': step, 'total_steps': total_steps})
-                logger.info(f"[进度] {message} {step} {total_steps}")
 
             # 1. 数据预获取和验证阶段
             update_progress("🔍 验证股票代码并预获取数据...", 1, 10)

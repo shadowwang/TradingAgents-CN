@@ -1,3 +1,4 @@
+import typing
 from datetime import datetime
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -87,7 +88,8 @@ async def websocket_stock_analysis(websocket: WebSocket):
         stockanalysis_info.analysis_date = datetime.now().strftime('%Y-%m-%d')
 
         # 定义WebSocket进度回调
-        async def ws_progress_callback(progress: dict):
+        async def ws_progress_callback(progress: typing.Any):
+            logger.info(f"[ws_progress_callback] {progress} ")
             await websocket.send_json({
                 'success': True,
                 'error': 'ok',
