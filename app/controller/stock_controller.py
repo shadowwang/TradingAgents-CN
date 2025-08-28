@@ -96,7 +96,7 @@ async def websocket_stock_analysis(websocket: WebSocket):
             })
 
         # 运行分析并发送结果
-        result = await stock_service.run_stock_analysis(stockanalysis_info, ws_progress_callback)
+        result = stock_service.run_stock_analysis(stockanalysis_info, ws_progress_callback)
         await websocket.send_json({
             'success': True,
             'error': 'ok',
