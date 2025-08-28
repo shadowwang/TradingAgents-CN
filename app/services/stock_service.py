@@ -59,7 +59,7 @@ class StockService:
             async def update_progress(message, step=None, total_steps=None):
                 """更新进度"""
                 if progress_callback:
-                    tracker = SmartAnalysisProgressTracker(stockanalysis_info.analysts , stockanalysis_info.research_depth,
+                    tracker = SmartAnalysisProgressTracker(["market", "social", "news", "fundamentals"] , stockanalysis_info.research_depth,
                                                            "deepseek")
                     progress = step / max(total_steps - 1, 1) if total_steps > 1 else 1.0
                     progress = min(progress, 1.0)
