@@ -1,3 +1,4 @@
+import asyncio
 import typing
 from datetime import datetime
 
@@ -90,12 +91,12 @@ async def websocket_stock_analysis(websocket: WebSocket):
         # 定义WebSocket进度回调
         def ws_progress_callback(progress):
             logger.info(f"[ws_progress_callback] {progress} ")
-            websocket.send_json({
+            asyncio.create_task(websocket.send_json({
                 'success': True,
                 'error': 'ok',
                 'type': 'progress',
                 'data': progress
-            })
+            }))
 
         # 运行分析并发送结果
         result = stock_service.run_stock_analysis(stockanalysis_info, ws_progress_callback)
