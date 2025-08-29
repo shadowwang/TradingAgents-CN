@@ -155,7 +155,7 @@ class SmartAnalysisProgressTracker:
             return self.estimated_duration
 
         # 如果进度超过20%，使用实际进度来预估
-        if progress > 0.2:
+        if progress > 20:
             estimated_total = elapsed_time / progress
             return max(estimated_total - elapsed_time, 0)
         else:
