@@ -62,8 +62,8 @@ class StockService:
             async def update_progress(message, step=None, total_steps=None):
                 """更新进度"""
                 if progress_callback:
-                    progress = step / max(total_steps - 1, 1) if total_steps > 1 else 1.0
-                    progress = min(progress, 1.0)
+                    tracker.update(message, step, total_steps)
+                    progress = tracker.get_progress_percentage()
                     elapsed_time = tracker.get_elapsed_time()
                     remaining_time = tracker.estimate_remaining_time(progress, elapsed_time)
                     logger.info(f"[进度] {message}")
