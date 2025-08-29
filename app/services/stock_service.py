@@ -64,7 +64,7 @@ class StockService:
                 if progress_callback:
                     tracker.update(message, step, total_steps)
                     progress = tracker.get_progress_percentage()
-                    elapsed_time = tracker.get_elapsed_time()
+                    elapsed_time = tracker.get_estimated_total_time()
                     remaining_time = tracker.estimate_remaining_time(progress, elapsed_time)
                     logger.info(f"[进度] {message}")
                     await progress_callback({'message': message,
