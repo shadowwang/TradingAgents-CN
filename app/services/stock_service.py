@@ -55,12 +55,13 @@ class StockService:
         return search_stocks_tushare(stock_code)
 
     async def run_stock_analysis(self, stockanalysis_info: StockAnalysisInfo, progress_callback=None, cancel_flag=None):
+        tracker = SmartAnalysisProgressTracker(["market", "social", "news", "fundamentals"],
+                                               stockanalysis_info.research_depth,
+                                               "deepseek")
         try:
             async def update_progress(message, step=None, total_steps=None):
                 """更新进度"""
                 if progress_callback:
-                    tracker = SmartAnalysisProgressTracker(["market", "social", "news", "fundamentals"] , stockanalysis_info.research_depth,
-                                                           "deepseek")
                     progress = step / max(total_steps - 1, 1) if total_steps > 1 else 1.0
                     progress = min(progress, 1.0)
                     elapsed_time = tracker.get_elapsed_time()
