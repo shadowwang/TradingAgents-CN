@@ -151,6 +151,8 @@ class SmartAnalysisProgressTracker:
 
     def estimate_remaining_time(self, progress: float, elapsed_time: float) -> float:
         """智能预估剩余时间"""
+        logger.info(f"智能预估剩余时间, ",
+                    {self.estimated_duration}, {elapsed_time})
         if progress <= 0:
             return self.estimated_duration
 
