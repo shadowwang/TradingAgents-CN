@@ -152,17 +152,18 @@ class SmartAnalysisProgressTracker:
 
     def estimate_remaining_time(self, progress: float, elapsed_time: float) -> float:
         """智能预估剩余时间"""
-        logger.info(f"智能预估剩余时间, {self.estimated_duration}, {elapsed_time}" )
-        if progress <= 0:
-            return self.estimated_duration
-
-        # 如果进度超过20%，使用实际进度来预估
-        if progress > 20:
-            estimated_total = elapsed_time / progress
-            return max(estimated_total - elapsed_time, 0)
-        else:
-            # 前期使用预估时间
-            return max(self.estimated_duration - elapsed_time, 0)
+        logger.info(f"智能预估剩余时间,当前进度： {progress} 总时长{elapsed_time}" )
+        # if progress <= 0:
+        #     return self.estimated_duration
+        #
+        # # 如果进度超过20%，使用实际进度来预估
+        # if progress > 20:
+        #     estimated_total = elapsed_time / progress
+        #     return max(estimated_total - elapsed_time, 0)
+        # else:
+        #     # 前期使用预估时间
+        #     return max(self.estimated_duration - elapsed_time, 0)
+        return ((100 -progress) / 100) * elapsed_time
     
     def _detect_step_from_message(self, message: str) -> Optional[int]:
         """根据消息内容智能检测当前步骤"""
