@@ -92,7 +92,7 @@ class SmartAnalysisProgressTracker:
         }.get(self.research_depth, 1.0)
 
         total_time = (base_time + analyst_time) * model_multiplier * depth_multiplier
-        logger.info(f"_estimate_total_duration", {total_time})
+        logger.info(f"_estimate_total_duration {total_time}")
         return total_time
     
     def update(self, message: str, step: Optional[int] = None, total_steps: Optional[int] = None):
@@ -152,8 +152,7 @@ class SmartAnalysisProgressTracker:
 
     def estimate_remaining_time(self, progress: float, elapsed_time: float) -> float:
         """智能预估剩余时间"""
-        logger.info(f"智能预估剩余时间, ",
-                    {self.estimated_duration}, {elapsed_time})
+        logger.info(f"智能预估剩余时间, {self.estimated_duration}, {elapsed_time}" )
         if progress <= 0:
             return self.estimated_duration
 
