@@ -92,6 +92,7 @@ class SmartAnalysisProgressTracker:
         }.get(self.research_depth, 1.0)
 
         total_time = (base_time + analyst_time) * model_multiplier * depth_multiplier
+        logger.info(f"_estimate_total_duration", {total_time})
         return total_time
     
     def update(self, message: str, step: Optional[int] = None, total_steps: Optional[int] = None):
