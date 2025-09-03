@@ -1,3 +1,4 @@
+import typing
 from datetime import datetime
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -76,14 +77,22 @@ async def websocket_stock_analysis(websocket: WebSocket):
             })
             return
 
+        await websocket.send_json({
+            'success': True,
+            'type': 'result',
+            'decision': ""
+        })
+
         # 设置分析参数
         stockanalysis_info.analysts = ["market", "social", "news", "fundamentals"]
         stockanalysis_info.analysis_date = datetime.now().strftime('%Y-%m-%d')
 
         # 定义WebSocket进度回调
-        async def ws_progress_callback(progress: dict):
+        async def ws_progress_callback(progress):
+            logger.info(f"[ws_progress_callback] {progress} ")
             await websocket.send_json({
                 'success': True,
+                'error': 'ok',
                 'type': 'progress',
                 'data': progress
             })
@@ -92,8 +101,9 @@ async def websocket_stock_analysis(websocket: WebSocket):
         result = await stock_service.run_stock_analysis(stockanalysis_info, ws_progress_callback)
         await websocket.send_json({
             'success': True,
+            'error': 'ok',
             'type': 'result',
-            'data': result
+            'decision': result
         })
 
     except Exception as e:
@@ -102,8 +112,8 @@ async def websocket_stock_analysis(websocket: WebSocket):
             'success': False,
             'error': str(e)
         })
-    finally:
-        await websocket.close()
+    # finally:
+    #     await websocket.close()
 
 @stock_router.get("/get_stock_data/{stock_name}")
 async def get_stock_data(stock_name: str):

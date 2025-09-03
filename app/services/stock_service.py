@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import List, Dict, Any
 
 from app.model.stock_analysis_info import StockAnalysisInfo
+from app.utils.progress_tracker import SmartAnalysisProgressTracker
 from tradingagents.api.stock_api import search_stocks
 from tradingagents.dataflows import search_china_stocks_tushare
 from tradingagents.dataflows.interface import search_stocks_tushare
@@ -53,16 +54,26 @@ class StockService:
     def get_stock_data(self, stock_code: str)-> str:
         return search_stocks_tushare(stock_code)
 
-    def run_stock_analysis(self, stockanalysis_info: StockAnalysisInfo, progress_callback=None, cancel_flag=None):
+    async def run_stock_analysis(self, stockanalysis_info: StockAnalysisInfo, progress_callback=None, cancel_flag=None):
+        tracker = SmartAnalysisProgressTracker(["market", "social", "news", "fundamentals"],
+                                               stockanalysis_info.research_depth,
+                                               "deepseek")
         try:
-            def update_progress(message, step=None, total_steps=None):
+            async def update_progress(message, step=None, total_steps=None):
                 """更新进度"""
                 if progress_callback:
-                    progress_callback(message, step, total_steps)
-                logger.info(f"[进度] {message}")
+                    tracker.update(message, step, total_steps)
+                    progress = tracker.get_progress_percentage()
+                    elapsed_time = tracker.get_estimated_total_time()
+                    remaining_time = tracker.estimate_remaining_time(progress, elapsed_time)
+                    logger.info(f"[进度] {message}")
+                    await progress_callback({'message': message,
+                                             'progress': progress,
+                                             'remaining_time': remaining_time,
+                                             'elapsed_time': elapsed_time})
 
             # 1. 数据预获取和验证阶段
-            update_progress("🔍 验证股票代码并预获取数据...", 1, 10)
+            await update_progress("🔍 验证股票代码并预获取数据...", 1, 4)
 
             preparer = get_stock_preparer()
             preparation_result = preparer.prepare_stock_data(stockanalysis_info.stock_code)
@@ -92,7 +103,7 @@ class StockService:
 
         # 数据预获取成功
         success_msg = f"✅ 数据准备完成: {preparation_result.stock_name} ({preparation_result.market_type})"
-        update_progress(success_msg)  # 使用智能检测，不再硬编码步骤
+        await update_progress(success_msg, 2, 4)  # 使用智能检测，不再硬编码步骤
 
         config = DEFAULT_CONFIG.copy()
         config["llm_provider"] = "deepseek"
@@ -129,89 +140,99 @@ class StockService:
 
         # 默认基本面
         # analysts = "fundamentals"
-        update_progress(f"📊 开始分析 {stockanalysis_info.stock_name} 股票，这可能需要几分钟时间...")
+        await update_progress(f"📊 开始分析 {stockanalysis_info.stock_name} 股票，这可能需要几分钟时间...", 3, 4)
 
         # 检查是否需要取消分析
-        if cancel_flag and cancel_flag.is_set():
-            return {
-                'success': False,
-                'error': "分析已被用户取消",
-                'suggestion': "您可以稍后重新开始分析",
-                'stock_symbol': stockanalysis_info.stock_code,
-                'analysis_date': stockanalysis_info.analysis_date,
-                'state': None,
-                'decision': None,
-            }
+        # if cancel_flag and cancel_flag.is_set():
+        #     return {
+        #         'success': False,
+        #         'error': "分析已被用户取消",
+        #         'suggestion': "您可以稍后重新开始分析",
+        #         'stock_symbol': stockanalysis_info.stock_code,
+        #         'analysis_date': stockanalysis_info.analysis_date,
+        #         'state': None,
+        #         'decision': None,
+        #     }
+        #
+        # # 使用 concurrent.futures 执行分析任务
+        # with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        #     # 提交分析任务
+        #     def analysis_task():
+        #         graph = TradingAgentsGraph(stockanalysis_info.analysts, config=config, debug=False)
+        #         return graph.propagate(stockanalysis_info.stock_code, stockanalysis_info.analysis_date)
+        #
+        #     future = executor.submit(analysis_task)
+        #
+        #     # 等待分析完成或取消
+        #     while not future.done():
+        #         # 每秒检查一次取消标志
+        #         if cancel_flag and cancel_flag.is_set():
+        #             # 尝试取消任务
+        #             future.cancel()
+        #             return {
+        #                 'success': False,
+        #                 'error': "分析已被用户取消",
+        #                 'suggestion': "您可以稍后重新开始分析",
+        #                 'stock_symbol': stockanalysis_info.stock_code,
+        #                 'analysis_date': stockanalysis_info.analysis_date,
+        #                 'state': None,
+        #                 'decision': None,
+        #             }
+        #         time.sleep(1)
+        #
+        #     try:
+        #         # 获取分析结果
+        #         state, decision = future.result()
+        #     except concurrent.futures.CancelledError:
+        #         return {
+        #             'success': False,
+        #             'error': "分析已被用户取消",
+        #             'suggestion': "您可以稍后重新开始分析",
+        #             'stock_symbol': stockanalysis_info.stock_code,
+        #             'analysis_date': stockanalysis_info.analysis_date,
+        #             'state': None,
+        #             'decision': None,
+        #         }
+        #     except Exception as e:
+        #         return {
+        #             'success': False,
+        #             'error': f"分析过程中发生错误: {str(e)}",
+        #             'suggestion': "请检查系统日志或联系技术支持",
+        #             'stock_symbol': stockanalysis_info.stock_code,
+        #             'analysis_date': stockanalysis_info.analysis_date,
+        #             'state': None,
+        #             'decision': None,
+        #         }
+        #
+        # risk_assessment = self.extract_risk_assessment(state)
+        # # 将风险评估添加到状态中
+        # if risk_assessment:
+        #     state['risk_assessment'] = risk_assessment
+        #
+        #
+        # results = {
+        #     'stock_symbol': stockanalysis_info.stock_code,
+        #     'analysis_date': stockanalysis_info.analysis_date,
+        #     'analysts': stockanalysis_info.analysts,
+        #     'research_depth': stockanalysis_info.research_depth,
+        #     'state': state,
+        #     'decision': decision,
+        #     'success': True,
+        #     'suggestion': None,
+        # }
 
-        # 使用 concurrent.futures 执行分析任务
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            # 提交分析任务
-            def analysis_task():
-                graph = TradingAgentsGraph(stockanalysis_info.analysts, config=config, debug=False)
-                return graph.propagate(stockanalysis_info.stock_code, stockanalysis_info.analysis_date)
-                
-            future = executor.submit(analysis_task)
-            
-            # 等待分析完成或取消
-            while not future.done():
-                # 每秒检查一次取消标志
-                if cancel_flag and cancel_flag.is_set():
-                    # 尝试取消任务
-                    future.cancel()
-                    return {
-                        'success': False,
-                        'error': "分析已被用户取消",
-                        'suggestion': "您可以稍后重新开始分析",
-                        'stock_symbol': stockanalysis_info.stock_code,
-                        'analysis_date': stockanalysis_info.analysis_date,
-                        'state': None,
-                        'decision': None,
-                    }
-                time.sleep(1)
-            
-            try:
-                # 获取分析结果
-                state, decision = future.result()
-            except concurrent.futures.CancelledError:
-                return {
-                    'success': False,
-                    'error': "分析已被用户取消",
-                    'suggestion': "您可以稍后重新开始分析",
-                    'stock_symbol': stockanalysis_info.stock_code,
-                    'analysis_date': stockanalysis_info.analysis_date,
-                    'state': None,
-                    'decision': None,
-                }
-            except Exception as e:
-                return {
-                    'success': False,
-                    'error': f"分析过程中发生错误: {str(e)}",
-                    'suggestion': "请检查系统日志或联系技术支持",
-                    'stock_symbol': stockanalysis_info.stock_code,
-                    'analysis_date': stockanalysis_info.analysis_date,
-                    'state': None,
-                    'decision': None,
-                }
-
-        risk_assessment = self.extract_risk_assessment(state)
-        # 将风险评估添加到状态中
-        if risk_assessment:
-            state['risk_assessment'] = risk_assessment
-
-
+        await update_progress("✅ 分析成功完成！", 4, 4)
+        # mock
         results = {
             'stock_symbol': stockanalysis_info.stock_code,
             'analysis_date': stockanalysis_info.analysis_date,
             'analysts': stockanalysis_info.analysts,
             'research_depth': stockanalysis_info.research_depth,
-            'state': state,
-            'decision': decision,
+            'state': '',
+            'decision': '',
             'success': True,
             'suggestion': None,
         }
-
-        update_progress("✅ 分析成功完成！")
-
         return results
 
     def extract_risk_assessment(self, state):
