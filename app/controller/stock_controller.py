@@ -103,7 +103,7 @@ async def websocket_stock_analysis(websocket: WebSocket):
             'success': True,
             'error': 'ok',
             'type': 'result',
-            'decision': result
+            'data': result
         })
 
     except Exception as e:
