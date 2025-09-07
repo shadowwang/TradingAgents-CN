@@ -157,7 +157,9 @@ class StockDataPreparer:
         stock_code = stock_code.strip().upper()
         
         # A股：6位数字
-        if re.match(r'^\d{6}$', stock_code):
+        if (re.match(r'^\d{6}$', stock_code)
+                or re.match(r'^\d{6}\.SH$', stock_code)
+                or re.match(r'^\d{6}\.SZ$', stock_code)):
             return "A股"
         
         # 港股：4-5位数字.HK 或 纯4-5位数字
