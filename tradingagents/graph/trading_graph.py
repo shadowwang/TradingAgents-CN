@@ -26,7 +26,31 @@ logger = get_logger('agents')
 from tradingagents.agents.utils.agent_states import (
     AgentState,
     InvestDebateState,
-    RiskDebateState,
+    Ri# Risk management team state
+class RiskDebateState(TypedDict):
+    risky_history: Annotated[
+        str, "Risky Agent's Conversation history"
+    ]  # Conversation history
+    safe_history: Annotated[
+        str, "Safe Agent's Conversation history"
+    ]  # Conversation history
+    neutral_history: Annotated[
+        str, "Neutral Agent's Conversation history"
+    ]  # Conversation history
+    history: Annotated[str, "Conversation history"]  # Conversation history
+    latest_speaker: Annotated[str, "Analyst that spoke last"]
+    current_risky_response: Annotated[
+        str, "Latest response by the risky analyst"
+    ]  # Last response
+    current_safe_response: Annotated[
+        str, "Latest response by the safe analyst"
+    ]  # Last response
+    current_neutral_response: Annotated[
+        str, "Latest response by the neutral analyst"
+    ]  # Last response
+    judge_decision: Annotated[str, "Judge's decision"]
+    count: Annotated[int, "Length of the current conversation"]  # Conversation length
+skDebateState,
 )
 from tradingagents.dataflows.interface import set_config
 

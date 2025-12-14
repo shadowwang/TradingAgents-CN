@@ -43,3 +43,4 @@ pypandoc>=1.11  # 文档格式转换，用于导出报告功能
 python-dotenv>=1.0.0  # 环境变量管理，用于.env文件解析
 fastapi
 uvicorn
+sentence-transformers  # 文本嵌入模型，用于生成文本向量
