@@ -8,6 +8,7 @@ import logging
 
 from ..models.intent_models import IntentType, IntentResult
 from .rule_engine import RuleBasedIntentEngine
+from .EmotionAnalyzer import EmotionAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -80,19 +81,31 @@ class MLIntentClassifier:
         Returns:
             意图识别结果
         """
-        # TODO: 实现真实的模型推理
-        # inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=128)
-        # with torch.no_grad():
-        #     logits = self.model(**inputs).logits
-        # probs = torch.softmax(logits, dim=1)[0]
-        # pred = torch.argmax(probs).item()
-        # 
-        # return IntentResult(
-        #     intent=self.labels[pred],
-        #     confidence=probs[pred].item(),
-        #     source="model"
-        # )
-        pass
+        try:
+            analysis = EmotionAnalyzer()
+            emotion_result = analysis.analyze(text)
+            
+            # 将情感分析结果转换为意图
+            emotion = emotion_result.get("emotion", "neutral")
+            confidence = emotion_result.get("confidence", 0.5)
+            
+            # 根据情感结果确定意图类型
+            if emotion == "negative":
+                intent_type = IntentType.EMOTION
+            elif emotion == "positive":
+                intent_type = IntentType.EMOTION
+            else:
+                intent_type = IntentType.CONVERSATION
+                
+            return IntentResult(
+                intent=intent_type,
+                confidence=confidence,
+                source="model",
+                metadata={"emotion": emotion, "probabilities": emotion_result.get("probabilities", {})}
+            )
+        except Exception as e:
+            logger.warning(f"情感分析失败: {e}，使用默认分类")
+            return self._heuristic_classify(text)
     
     def _heuristic_classify(self, text: str) -> IntentResult:
         """
