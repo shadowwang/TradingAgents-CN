@@ -21,11 +21,13 @@ Response Generator Core Module
 import yaml
 import logging
 import random
+import os
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 
+from app.utils.sentiment_classifier import SentimentClassifier
 from .dynamic_prompt_builder import DynamicPromptBuilder
-from backend.utils.sentiment_classifier import SentimentClassifier
+from app.manager.deepseek_adapter import DeepSeekAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +37,12 @@ class ResponseGenerator:
     
     def __init__(self, 
                  llm_client,
-                 strategy_file: str = "/home/workSpace/emotional_chat/backend/config/emotion_strategy.yaml",
+                 strategy_file: Optional[str] = None,
                  enable_consistency_check: bool = True,
-                 enable_cache: bool = True):
+                 enable_cache: bool = True,
+                 model_name: str = "deepseek-chat",
+                 temperature: float = 0.7,
+                 max_tokens: int = 150):
         """
         初始化响应生成器
         
@@ -46,10 +51,42 @@ class ResponseGenerator:
             strategy_file: 情感策略配置文件路径
             enable_consistency_check: 是否启用一致性检查
             enable_cache: 是否启用缓存匹配
+            model_name: 模型名称，默认为deepseek-chat
+            temperature: 生成温度，控制回复多样性
+            max_tokens: 最大生成token数
         """
         self.llm_client = llm_client
         self.enable_consistency_check = enable_consistency_check
         self.enable_cache = enable_cache
+        self.model_name = model_name
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        
+        # 检测是否为DeepSeek客户端或适配器
+        if isinstance(llm_client, DeepSeekAdapter):
+            self.is_deepseek = True
+            self.deepseek_adapter = llm_client
+        elif hasattr(llm_client, 'chat') and hasattr(llm_client.chat, 'completions'):
+            self.is_deepseek = True
+            # 为普通的OpenAI客户端创建DeepSeek适配器
+            api_key = getattr(llm_client, 'api_key', None)
+            base_url = getattr(llm_client, 'base_url', None)
+            if api_key and base_url and "deepseek" in base_url:
+                self.deepseek_adapter = DeepSeekAdapter(api_key=api_key, base_url=base_url)
+            else:
+                self.deepseek_adapter = None
+        else:
+            self.is_deepseek = False
+            self.deepseek_adapter = None
+        
+        # 动态获取配置文件路径
+        if strategy_file is None:
+            # 获取项目根目录
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            # 从 app/model/intent/core 向上四级目录到达项目根目录
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))))
+            # 从项目根目录到配置文件的正确路径
+            strategy_file = os.path.join(project_root, 'app', 'config', 'emotion_strategy.yaml')
         
         # 加载情感策略
         try:
@@ -71,7 +108,7 @@ class ResponseGenerator:
         self.cached_responses = self._load_cached_responses()
         
         # 统计信息
-        self.stats = {
+        self.generation_stats = {
             "total_generations": 0,
             "rule_based": 0,
             "cached": 0,
@@ -112,9 +149,9 @@ class ResponseGenerator:
             - warnings: 警告信息
             - metadata: 元数据
         """
-        self.stats["total_generations"] += 1
+        self.generation_stats["total_generations"] += 1
         
-        result = {
+        generation_result = {
             "response": "",
             "generation_method": "",
             "is_valid": True,
@@ -129,22 +166,22 @@ class ResponseGenerator:
         # 1. 检查是否为高风险情况（危机干预）
         if self._is_crisis_situation(user_emotion, metadata):
             response = self._handle_crisis(user_input, user_emotion, metadata)
-            result["response"] = response
-            result["generation_method"] = "rule_based_crisis"
-            result["metadata"]["is_crisis"] = True
-            self.stats["rule_based"] += 1
+            generation_result["response"] = response
+            generation_result["generation_method"] = "rule_based_crisis"
+            generation_result["metadata"]["is_crisis"] = True
+            self.generation_stats["rule_based"] += 1
             logger.warning(f"危机干预触发 [user={user_id}]: {user_emotion}")
-            return result
+            return generation_result
         
         # 2. 缓存匹配（高频固定场景）
         if self.enable_cache:
             cached_response = self._match_cached_response(user_input, user_emotion)
             if cached_response:
-                result["response"] = cached_response
-                result["generation_method"] = "cached"
-                self.stats["cached"] += 1
+                generation_result["response"] = cached_response
+                generation_result["generation_method"] = "cached"
+                self.generation_stats["cached"] += 1
                 logger.debug(f"使用缓存回复 [user={user_id}]")
-                return result
+                return generation_result
         
         # 3. LLM生成（主要路径）
         try:
@@ -155,11 +192,12 @@ class ResponseGenerator:
                 emotion_intensity=emotion_intensity,
                 conversation_history=conversation_history,
                 retrieved_memories=retrieved_memories,
-                user_profile=user_profile
+                user_profile=user_profile,
+                is_deepseek=self.is_deepseek
             )
             
             # 3.2 调用大模型生成
-            raw_response = self._call_llm(prompt)
+            raw_response = self._call_llm(prompt, user_emotion, emotion_intensity)
             
             # 3.3 后处理
             processed_response = self._post_process_response(raw_response, user_emotion)
@@ -180,33 +218,33 @@ class ResponseGenerator:
                     
                     # 降级为预设回复
                     fallback = self._get_fallback_response(user_emotion)
-                    result["response"] = fallback
-                    result["generation_method"] = "fallback"
-                    result["is_valid"] = False
-                    result["metadata"]["original_response"] = processed_response
-                    self.stats["fallback_used"] += 1
-                    return result
+                    generation_result["response"] = fallback
+                    generation_result["generation_method"] = "fallback"
+                    generation_result["is_valid"] = False
+                    generation_result["metadata"]["original_response"] = processed_response
+                    self.generation_stats["fallback_used"] += 1
+                    return generation_result
             
             # 3.5 成功生成
-            result["response"] = processed_response
-            result["generation_method"] = "llm_generated"
-            result["is_valid"] = True
-            self.stats["llm_generated"] += 1
+            generation_result["response"] = processed_response
+            generation_result["generation_method"] = "llm_generated"
+            generation_result["is_valid"] = True
+            self.generation_stats["llm_generated"] += 1
             
         except Exception as e:
             # 异常处理，使用兜底回复
             logger.error(f"LLM生成失败: {e}")
-            result["response"] = self._get_fallback_response(user_emotion)
-            result["generation_method"] = "fallback_error"
-            result["is_valid"] = False
-            result["warnings"].append(f"生成异常: {str(e)}")
-            result["metadata"]["error"] = str(e)
-            self.stats["fallback_used"] += 1
+            generation_result["response"] = self._get_fallback_response(user_emotion)
+            generation_result["generation_method"] = "fallback_error"
+            generation_result["is_valid"] = False
+            generation_result["warnings"].append(f"生成异常: {str(e)}")
+            generation_result["metadata"]["error"] = str(e)
+            self.generation_stats["fallback_used"] += 1
         
-        return result
+        return generation_result
     
-    def _is_crisis_situation(self, 
-                            user_emotion: str, 
+    @staticmethod
+    def _is_crisis_situation(user_emotion: str, 
                             metadata: Optional[Dict]) -> bool:
         """
         判断是否为危机情况（核心逻辑）
@@ -297,20 +335,52 @@ class ResponseGenerator:
         
         return None
     
-    def _call_llm(self, prompt: str) -> str:
+    def _call_llm(self, prompt: str, user_emotion: Optional[str] = None, emotion_intensity: float = 5.0) -> str:
         """
         调用大模型生成回复
         
         Args:
             prompt: 完整的Prompt
+            user_emotion: 用户情绪（用于参数调整）
+            emotion_intensity: 情绪强度（用于参数调整）
             
         Returns:
             生成的回复文本
         """
-        # 根据不同的LLM客户端类型调用
         try:
-            # 假设llm_client有generate或predict方法
-            if hasattr(self.llm_client, 'generate'):
+            # 使用DeepSeek适配器
+            if self.is_deepseek and self.deepseek_adapter:
+                # 根据情绪调整参数
+                temperature = self.deepseek_adapter.adapt_temperature_for_emotion(
+                    user_emotion or "neutral", 
+                    emotion_intensity
+                )
+                max_tokens = self.deepseek_adapter.adapt_max_tokens_for_emotion(
+                    user_emotion or "neutral"
+                )
+                
+                # 调用DeepSeek API
+                messages = [{"role": "user", "content": prompt}]
+                response = self.deepseek_adapter.chat_completion(
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens
+                )
+                return response.choices[0].message.content.strip()
+            
+            # 检测是否为DeepSeek客户端但没有适配器
+            elif self.is_deepseek:
+                messages = [{"role": "user", "content": prompt}]
+                response = self.llm_client.chat.completions.create(
+                    model=self.model_name,
+                    messages=messages,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens
+                )
+                return response.choices[0].message.content.strip()
+            
+            # 原有的兼容性逻辑
+            elif hasattr(self.llm_client, 'generate'):
                 response = self.llm_client.generate(prompt)
             elif hasattr(self.llm_client, 'predict'):
                 response = self.llm_client.predict(prompt)
@@ -338,7 +408,7 @@ class ResponseGenerator:
         
         Args:
             response: 原始回复
-            user_emotion: 用户情绪
+            user_emotion: 用户情绪（用于日志记录）
             
         Returns:
             处理后的回复
@@ -464,23 +534,23 @@ class ResponseGenerator:
         Returns:
             统计信息字典
         """
-        total = self.stats["total_generations"]
+        total = self.generation_stats["total_generations"]
         if total == 0:
-            return self.stats
+            return self.generation_stats
         
         return {
-            **self.stats,
-            "rule_based_rate": self.stats["rule_based"] / total,
-            "cached_rate": self.stats["cached"] / total,
-            "llm_rate": self.stats["llm_generated"] / total,
-            "failure_rate": self.stats["consistency_failures"] / total,
-            "fallback_rate": self.stats["fallback_used"] / total
+            **self.generation_stats,
+            "rule_based_rate": self.generation_stats["rule_based"] / total,
+            "cached_rate": self.generation_stats["cached"] / total,
+            "llm_rate": self.generation_stats["llm_generated"] / total,
+            "failure_rate": self.generation_stats["consistency_failures"] / total,
+            "fallback_rate": self.generation_stats["fallback_used"] / total
         }
     
     def reset_statistics(self):
         """重置统计信息"""
-        for key in self.stats:
-            self.stats[key] = 0
+        for stat_key in self.generation_stats:
+            self.generation_stats[stat_key] = 0
 
 
 # 便捷函数
@@ -499,7 +569,12 @@ def create_response_generator(llm_client,
         ResponseGenerator实例
     """
     if strategy_file is None:
-        strategy_file = "/home/workSpace/emotional_chat/backend/config/emotion_strategy.yaml"
+        # 动态获取项目根目录
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # 从 app/model/intent/core 向上四级目录到达项目根目录
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))))
+        # 从项目根目录到配置文件的正确路径
+        strategy_file = os.path.join(project_root, 'app', 'config', 'emotion_strategy.yaml')
     
     return ResponseGenerator(llm_client, strategy_file, **kwargs)
 
@@ -521,6 +596,23 @@ if __name__ == "__main__":
                 return "焦虑的感觉确实不好受。深呼吸，让我们一步步来。我在这里陪着你。🌸"
             else:
                 return "我在这里倾听。你想说什么都可以。😊"
+        
+        # 添加DeepSeek兼容的API接口
+        @property
+        def chat(self):
+            class ChatCompletions:
+                def create(self, model, messages, temperature=0.7, max_tokens=150):
+                    # 模拟DeepSeek API响应
+                    class Response:
+                        class Choice:
+                            class Message:
+                                content = "我是心语，很愿意倾听你的心声。😊"
+                        
+                        choices = [Choice()]
+                    
+                    return Response()
+            
+            return ChatCompletions()
     
     # 创建生成器
     mock_client = MockLLMClient()

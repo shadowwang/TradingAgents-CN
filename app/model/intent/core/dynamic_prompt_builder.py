@@ -47,13 +47,13 @@ class DynamicPromptBuilder:
     EMOTION_DRIVEN_TEMPLATE = """
 {base_system}
 
-# 当前对话情境
-## 用户情绪状态
+## 当前对话情境
+### 用户情绪状态
 情绪类型：{emotion_label}
 情绪强度：{emotion_intensity}/10
 共情等级：{empathy_level}
 
-## 回应策略
+### 回应策略
 目标：{response_goal}
 语气要求：{tone_requirement}
 关键表达：{key_expressions}
@@ -65,17 +65,18 @@ class DynamicPromptBuilder:
 
 {example_section}
 
-# 当前对话
+## 当前对话
 {conversation_history}
 
 用户：{user_input}
 
-# 回复要求
+## 回复要求
 1. 使用{tone_requirement}的语气进行回应
 2. 体现{empathy_level}的共情水平
 3. 回复长度控制在{max_sentences}句话以内
 4. {emoji_instruction}
 5. 确保回复自然、温暖且贴合用户当前情绪
+6. 作为"心语"回应，不要暴露自己是AI
 
 心语："""
     
@@ -122,7 +123,8 @@ class DynamicPromptBuilder:
                     retrieved_memories: Optional[List[Dict]] = None,
                     user_profile: Optional[Dict] = None,
                     is_crisis: bool = False,
-                    risk_keywords: Optional[List[str]] = None) -> str:
+                    risk_keywords: Optional[List[str]] = None,
+                    is_deepseek: bool = False) -> str:
         """
         构建完整的动态Prompt
         
@@ -135,6 +137,7 @@ class DynamicPromptBuilder:
             user_profile: 用户画像（偏好等）
             is_crisis: 是否为危机情况
             risk_keywords: 高风险关键词
+            is_deepseek: 是否为DeepSeek模型
             
         Returns:
             完整的Prompt字符串
@@ -147,9 +150,15 @@ class DynamicPromptBuilder:
         
         # 获取情感策略
         strategy = self.emotion_strategy.get(emotion, self.emotion_strategy.get("default", {}))
+        global_settings = self.emotion_strategy.get("global_settings", {})
+        deepseek_config = global_settings.get("deepseek_config", {})
         
         # 构建各个部分
         base_system = self.base_system
+        
+        # 如果是DeepSeek且需要强化角色扮演
+        if is_deepseek and deepseek_config.get("enhance_role_playing", False):
+            base_system = self._enhance_system_prompt_for_deepseek(base_system)
         
         emotion_label = self._get_emotion_label(emotion)
         response_goal = strategy.get("goal", "提供支持和倾听")
@@ -185,24 +194,45 @@ class DynamicPromptBuilder:
         # 回复长度
         max_sentences = strategy.get("max_length", 3)
         
-        # 填充模板
-        prompt = self.EMOTION_DRIVEN_TEMPLATE.format(
-            base_system=base_system,
-            emotion_label=emotion_label,
-            emotion_intensity=emotion_intensity,
-            empathy_level=self._get_empathy_level_description(empathy_level),
-            response_goal=response_goal,
-            tone_requirement=tone_requirement,
-            key_expressions=key_expressions,
-            avoid_words=avoid_words,
-            context_section=context_section,
-            memory_section=memory_section,
-            example_section=example_section,
-            conversation_history=conversation_history_text,
-            user_input=user_input,
-            max_sentences=max_sentences,
-            emoji_instruction=emoji_instruction
-        )
+        # 根据是否为DeepSeek选择不同的模板
+        if is_deepseek and deepseek_config.get("avoid_strict_templates", False):
+            # 使用更自然的Prompt格式
+            prompt = self._build_natural_deepseek_prompt(
+                base_system=base_system,
+                emotion_label=emotion_label,
+                emotion_intensity=emotion_intensity,
+                empathy_level=self._get_empathy_level_description(empathy_level),
+                response_goal=response_goal,
+                tone_requirement=tone_requirement,
+                key_expressions=key_expressions,
+                avoid_words=avoid_words,
+                context_section=context_section,
+                memory_section=memory_section,
+                example_section=example_section,
+                conversation_history=conversation_history_text,
+                user_input=user_input,
+                max_sentences=max_sentences,
+                emoji_instruction=emoji_instruction
+            )
+        else:
+            # 使用标准模板
+            prompt = self.EMOTION_DRIVEN_TEMPLATE.format(
+                base_system=base_system,
+                emotion_label=emotion_label,
+                emotion_intensity=emotion_intensity,
+                empathy_level=self._get_empathy_level_description(empathy_level),
+                response_goal=response_goal,
+                tone_requirement=tone_requirement,
+                key_expressions=key_expressions,
+                avoid_words=avoid_words,
+                context_section=context_section,
+                memory_section=memory_section,
+                example_section=example_section,
+                conversation_history=conversation_history_text,
+                user_input=user_input,
+                max_sentences=max_sentences,
+                emoji_instruction=emoji_instruction
+            )
         
         return prompt
     
@@ -387,20 +417,111 @@ class DynamicPromptBuilder:
         else:
             return f"{intensity}/10 - 低强度情绪，保持轻松自然"
     
-    def build_simple_prompt(self, user_input: str, emotion: str) -> str:
+    def _enhance_system_prompt_for_deepseek(self, base_system: str) -> str:
+        """
+        为DeepSeek增强系统Prompt，强化角色扮演
+        
+        Args:
+            base_system: 基础系统Prompt
+            
+        Returns:
+            增强后的系统Prompt
+        """
+        enhanced_prompt = base_system + "\n\n# DeepSeek特别提示\n" + \
+        "请严格保持'心语'的角色身份，在所有回复中都体现出这个角色的性格特点。 " + \
+        "你是一个真实的人，而不是AI。请始终以第一人称'我'来回应，避免任何暴露AI身份的表达。"
+        
+        return enhanced_prompt
+    
+    def _build_natural_deepseek_prompt(self, 
+                                     base_system: str,
+                                     emotion_label: str,
+                                     emotion_intensity: float,
+                                     empathy_level: str,
+                                     response_goal: str,
+                                     tone_requirement: str,
+                                     key_expressions: str,
+                                     avoid_words: str,
+                                     context_section: str,
+                                     memory_section: str,
+                                     example_section: str,
+                                     conversation_history: str,
+                                     user_input: str,
+                                     max_sentences: int,
+                                     emoji_instruction: str) -> str:
+        """
+        为DeepSeek构建更自然的Prompt格式
+        
+        Args:
+            所有构建Prompt需要的参数
+            
+        Returns:
+            自然格式的Prompt
+        """
+        prompt_parts = []
+        
+        # 系统角色
+        prompt_parts.append(f"## 角色设定\n{base_system}")
+        
+        # 情感背景
+        emotion_context = f"""## 情感背景
+用户当前情绪：{emotion_label}（强度{emotion_intensity}/10）
+你需要：{response_goal}
+使用{tone_requirement}的语气
+回复控制在{max_sentences}句话以内
+{emoji_instruction}"""
+        prompt_parts.append(emotion_context)
+        
+        # 关键表达
+        if key_expressions and key_expressions != "无":
+            prompt_parts.append(f"## 推荐表达\n可以自然地融入这些表达：{key_expressions}")
+        
+        # 上下文信息
+        if context_section:
+            prompt_parts.append(context_section)
+        
+        # 对话历史
+        if conversation_history and conversation_history != "（这是新对话的开始）":
+            prompt_parts.append(f"## 对话历史\n{conversation_history}")
+        
+        # 用户输入和请求
+        prompt_parts.append(f"用户说：{user_input}")
+        prompt_parts.append("\n请以'心语'的身份，自然地回复用户：")
+        
+        return "\n\n".join(prompt_parts)
+    
+    def build_simple_prompt(self, user_input: str, emotion: str, is_deepseek: bool = False) -> str:
         """
         构建简化版Prompt（快速响应用）
         
         Args:
             user_input: 用户输入
             emotion: 情绪类型
+            is_deepseek: 是否为DeepSeek模型
             
         Returns:
             简化的Prompt
         """
         strategy = self.emotion_strategy.get(emotion, self.emotion_strategy.get("default", {}))
         
-        simple_template = """你是"心语"，一位温暖的心理陪伴者。
+        if is_deepseek:
+            # DeepSeek简化版Prompt，更强调自然对话
+            simple_template = """## 角色
+你是"心语"，一位28岁的女性心理陪伴者，性格温柔、耐心、富有同理心。
+
+## 当前情况
+用户情绪：{emotion_label}
+你的目标：{goal}
+语气：{tone}
+
+## 对话
+用户：{user_input}
+
+请以心语的身份，用{tone}的语气，自然地回复用户（2-3句话）。不要暴露自己是AI。
+心语："""
+        else:
+            # 标准简化版Prompt
+            simple_template = """你是"心语"，一位温暖的心理陪伴者。
 
 当前用户情绪：{emotion_label}
 目标：{goal}
